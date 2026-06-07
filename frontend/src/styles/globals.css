@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --font-geist-sans: 'Space Grotesk', sans-serif;
+  --font-geist-mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: #080d14;
+  color: #e2e8f0;
+  font-family: var(--font-geist-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #0d1520; }
+::-webkit-scrollbar-thumb { background: #1f3350; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Glassmorphism card */
+.glass-card {
+  background: rgba(17, 29, 46, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(31, 51, 80, 0.6);
+  border-radius: 12px;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Input base styles */
+.input-base {
+  background: #111d2e;
+  border: 1px solid #1f3350;
+  border-radius: 8px;
+  color: #e2e8f0;
+  padding: 10px 14px;
+  width: 100%;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+.input-base:focus {
+  border-color: #3b82f6;
+  outline: none;
+}
+.input-base::placeholder { color: #4a6080; }
+
+/* Button base */
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-ghost {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid #1f3350;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-ghost:hover { background: #111d2e; color: #e2e8f0; border-color: #3b82f6; }

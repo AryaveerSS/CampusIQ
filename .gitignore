@@ -6,5 +6,4 @@ dist/
 build/
 *.log
 .DS_Store
-.kiro/
 README.full.md

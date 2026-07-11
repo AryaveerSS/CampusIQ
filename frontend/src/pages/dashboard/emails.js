@@ -25,7 +25,7 @@ export default function EmailsPage() {
           Checking Gmail connection...
         </div>
       ) : (
-        <EmailInbox gmailConnected={gmailConnected} />
+        <EmailInbox gmailConnected={gmailConnected} onDisconnected={() => setGmailConnected(false)} />
       )}
     </DashboardLayout>
   );

@@ -4,6 +4,7 @@ import { RefreshCw, Download, Plus, Trash2, Reply, ChevronRight, Zap, CheckCircl
 import { formatDistanceToNow } from 'date-fns';
 import ReplyModal from './ReplyModal';
 import EmailViewModal from './EmailViewModal';
+import TagInput from './TagInput';
 import clsx from 'clsx';
 
 const DEFAULT_BUCKETS = [
@@ -15,7 +16,7 @@ const DEFAULT_BUCKETS = [
 
 const AUTO_SYNC_INTERVAL_MS = 30000;   // poll every 30s when auto-sync is on
 
-export default function EmailInbox({ gmailConnected }) {
+export default function EmailInbox({ gmailConnected, onDisconnected }) {
   const [buckets, setBuckets] = useState([]);
   const [selectedBucket, setSelectedBucket] = useState(null);
   const [emails, setEmails] = useState([]);
@@ -24,7 +25,7 @@ export default function EmailInbox({ gmailConnected }) {
   const [syncing, setSyncing] = useState('');     // '' | 'new' | 'old'
   const [autoSync, setAutoSync] = useState(false);
   const [showNewBucket, setShowNewBucket] = useState(false);
-  const [newBucket, setNewBucket] = useState({ name: '', icon: '📧', keywords: '', color: '#3b82f6' });
+  const [newBucket, setNewBucket] = useState({ name: '', icon: '📧', keywords: [], sender_emails: [], excluded_senders: [], color: '#3b82f6' });
   const [bucketError, setBucketError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -75,7 +76,14 @@ export default function EmailInbox({ gmailConnected }) {
       const label = mode === 'old' ? 'older' : 'new';
       setNotice(`Synced ${res.synced} ${label} email${res.synced === 1 ? '' : 's'}.`);
     } catch (e) {
-      setNotice('Sync failed: ' + (e.response?.data?.error || e.message));
+      if (e.response?.data?.needs_reconnect) {
+        setAutoSync(false);
+        if (typeof window !== 'undefined') localStorage.setItem('campusiq_autosync', '0');
+        setNotice('Your Gmail connection expired. Please reconnect below.');
+        onDisconnected?.();
+      } else {
+        setNotice('Sync failed: ' + (e.response?.data?.error || e.message));
+      }
     } finally {
       setSyncing('');
     }
@@ -93,8 +101,15 @@ export default function EmailInbox({ gmailConnected }) {
         setNotice(`Auto-synced ${res.synced} new email${res.synced === 1 ? '' : 's'}.`);
       }
     } catch (e) {
-      // stay quiet on transient polling errors
-      console.error('Auto-sync error:', e.response?.data?.error || e.message);
+      if (e.response?.data?.needs_reconnect) {
+        setAutoSync(false);
+        if (typeof window !== 'undefined') localStorage.setItem('campusiq_autosync', '0');
+        setNotice('Your Gmail connection expired. Please reconnect below.');
+        onDisconnected?.();
+      } else {
+        // stay quiet on other transient polling errors
+        console.error('Auto-sync error:', e.response?.data?.error || e.message);
+      }
     } finally {
       autoBusyRef.current = false;
     }
@@ -130,9 +145,14 @@ export default function EmailInbox({ gmailConnected }) {
   async function createBucket() {
     setBucketError('');
     const name = newBucket.name.trim();
-    const keywords = newBucket.keywords.split(',').map(k => k.trim()).filter(Boolean);
+    const keywords = newBucket.keywords;
+    const sender_emails = newBucket.sender_emails;
+    const excluded_senders = newBucket.excluded_senders;
     if (!name) { setBucketError('Bucket name is required.'); return; }
-    if (!keywords.length) { setBucketError('Add at least one keyword.'); return; }
+    if (!keywords.length && !sender_emails.length) {
+      setBucketError('Add at least one keyword or sender email.');
+      return;
+    }
 
     // Client-side duplicate guard (backend enforces too)
     if (buckets.some(b => b.name.toLowerCase() === name.toLowerCase())) {
@@ -141,8 +161,8 @@ export default function EmailInbox({ gmailConnected }) {
     }
 
     try {
-      await bucketsApi.create({ ...newBucket, name, keywords });
-      setNewBucket({ name: '', icon: '📧', keywords: '', color: '#3b82f6' });
+      await bucketsApi.create({ ...newBucket, name, keywords, sender_emails, excluded_senders });
+      setNewBucket({ name: '', icon: '📧', keywords: [], sender_emails: [], excluded_senders: [], color: '#3b82f6' });
       setShowNewBucket(false);
       fetchBuckets();
     } catch (e) {
@@ -232,18 +252,55 @@ export default function EmailInbox({ gmailConnected }) {
 
       {/* New bucket form */}
       {showNewBucket && (
-        <div className="glass-card p-4 space-y-3 animate-slide-up">
+        <div className="glass-card p-4 space-y-4 animate-slide-up">
           <p className="text-sm font-medium text-slate-300">Create Email Bucket</p>
           <div className="grid grid-cols-2 gap-2">
             <input className="input-base" placeholder="Bucket name" value={newBucket.name}
               onChange={e => setNewBucket(b => ({ ...b, name: e.target.value }))} />
             <input className="input-base" placeholder="Icon (emoji)" value={newBucket.icon}
               onChange={e => setNewBucket(b => ({ ...b, icon: e.target.value }))} />
-            <input className="input-base col-span-2"
-              placeholder="Keywords (comma-separated): internship, hiring, apply"
-              value={newBucket.keywords}
-              onChange={e => setNewBucket(b => ({ ...b, keywords: e.target.value }))} />
           </div>
+
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-slate-400">Keywords</p>
+            <TagInput
+              tags={newBucket.keywords}
+              onChange={tags => setNewBucket(b => ({ ...b, keywords: tags }))}
+              placeholder="Type a keyword and press Enter..."
+            />
+            <p className="text-xs text-slate-600">
+              Matched by AI meaning — "HackerRank OA" will correctly land in Internships
+              even without the word "internship."
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-slate-400">Always include from these senders</p>
+            <TagInput
+              tags={newBucket.sender_emails}
+              onChange={tags => setNewBucket(b => ({ ...b, sender_emails: tags }))}
+              placeholder="e.g. noreply@hackerrank.com"
+              transform={s => s.toLowerCase()}
+            />
+            <p className="text-xs text-slate-600">
+              Emails from these addresses always land here — no keywords needed.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-slate-400">Never include from these senders</p>
+            <TagInput
+              tags={newBucket.excluded_senders}
+              onChange={tags => setNewBucket(b => ({ ...b, excluded_senders: tags }))}
+              placeholder="e.g. jobs@indeed.com, alerts@internshala.com"
+              transform={s => s.toLowerCase()}
+            />
+            <p className="text-xs text-slate-600">
+              Emails from these addresses are always excluded from this bucket,
+              even if a keyword matches.
+            </p>
+          </div>
+
           {bucketError && <p className="text-xs text-red-400">{bucketError}</p>}
           <div className="flex gap-2">
             <button onClick={createBucket} className="btn-primary text-xs py-2 px-3">Create</button>

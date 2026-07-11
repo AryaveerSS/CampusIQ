@@ -87,7 +87,9 @@ CREATE TABLE public.email_buckets (
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,              -- e.g. "Internships", "Assignments"
   icon TEXT DEFAULT '📧',
-  keywords TEXT[] NOT NULL,        -- e.g. ['internship', 'intern', 'hiring']
+  keywords TEXT[] DEFAULT '{}',    -- e.g. ['internship', 'intern', 'hiring'] (optional)
+  sender_emails TEXT[] DEFAULT '{}', -- e.g. ['no-reply@hackerrank.com'] — always goes here
+  excluded_senders TEXT[] DEFAULT '{}', -- e.g. ['jobs@indeed.com'] — never goes here
   color TEXT DEFAULT '#3b82f6',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

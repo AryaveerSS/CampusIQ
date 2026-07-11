@@ -71,6 +71,8 @@ export const gmailApi = {
 };
 
 // ── Email Buckets ─────────────────────────────────────────────
+// A bucket needs at least one of: keywords (AI-matched by meaning) or
+// sender_emails (hard rule — always goes to this bucket, no AI needed).
 export const bucketsApi = {
   list: () => api.get('/api/email-buckets').then(r => r.data),
   create: (body) => api.post('/api/email-buckets', body).then(r => r.data),

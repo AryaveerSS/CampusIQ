@@ -15,10 +15,18 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // POST /api/email-buckets
+// A bucket needs at least one classification signal: keywords and/or sender_emails.
+// - keywords: used as a hint for AI-based semantic classification (not literal-only matching)
+// - sender_emails: hard rule — any email from these addresses always goes to this bucket
 router.post('/', requireAuth, async (req, res) => {
-  const { name, icon, keywords, color } = req.body;
-  if (!name || !keywords?.length) {
-    return res.status(400).json({ error: 'name and keywords are required' });
+  const { name, icon, keywords, sender_emails, excluded_senders, color } = req.body;
+  const cleanKeywords = (keywords || []).map(k => k.trim()).filter(Boolean);
+  const cleanSenders = (sender_emails || []).map(e => e.trim().toLowerCase()).filter(Boolean);
+  const cleanExcluded = (excluded_senders || []).map(e => e.trim().toLowerCase()).filter(Boolean);
+
+  if (!name) return res.status(400).json({ error: 'name is required' });
+  if (!cleanKeywords.length && !cleanSenders.length) {
+    return res.status(400).json({ error: 'Add at least one keyword or sender email.' });
   }
 
   // Prevent duplicate buckets (case-insensitive name match)
@@ -35,7 +43,15 @@ router.post('/', requireAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('email_buckets')
-    .insert({ user_id: req.user.id, name: name.trim(), icon, keywords, color })
+    .insert({
+      user_id: req.user.id,
+      name: name.trim(),
+      icon,
+      keywords: cleanKeywords,
+      sender_emails: cleanSenders,
+      excluded_senders: cleanExcluded,
+      color,
+    })
     .select()
     .single();
 
@@ -45,10 +61,15 @@ router.post('/', requireAuth, async (req, res) => {
 
 // PUT /api/email-buckets/:id
 router.put('/:id', requireAuth, async (req, res) => {
-  const { name, icon, keywords, color } = req.body;
+  const { name, icon, keywords, sender_emails, excluded_senders, color } = req.body;
+  const update = { name, icon, color };
+  if (keywords !== undefined) update.keywords = keywords.map(k => k.trim()).filter(Boolean);
+  if (sender_emails !== undefined) update.sender_emails = sender_emails.map(e => e.trim().toLowerCase()).filter(Boolean);
+  if (excluded_senders !== undefined) update.excluded_senders = excluded_senders.map(e => e.trim().toLowerCase()).filter(Boolean);
+
   const { data, error } = await supabase
     .from('email_buckets')
-    .update({ name, icon, keywords, color })
+    .update(update)
     .eq('id', req.params.id)
     .eq('user_id', req.user.id)
     .select()
